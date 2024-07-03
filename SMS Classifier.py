@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Load the dataset
-df = pd.read_csv('/home/yoshitha/Desktop/sms/train.csv')
+df = pd.read_csv('/home/username/Desktop/sms/train.csv')
 df.head()
 
 # Check for missing values
