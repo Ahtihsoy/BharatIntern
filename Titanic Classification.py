@@ -1,74 +1,89 @@
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 
-# Step 1: Data Collection
-# Load the dataset
-url_train = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
-df = pd.read_csv(url_train)
+# Step 1: Load the data
+train_file = '/home/username/Desktop/titanic/train.csv'
+test_file = '/home/username/Desktop/titanic/test.csv'
+submission_file = '/home/username/Desktop/titanic/gender_submission.csv'
 
-# Step 2: Data Preprocessing
+train_data = pd.read_csv(train_file)
+test_data = pd.read_csv(test_file)
+submission_data = pd.read_csv(submission_file)
+
+# Step 2: Explore and preprocess the data
+# Combine train and test data for preprocessing
+combined_data = pd.concat([train_data.drop(columns=['Survived']), test_data], axis=0)
+
 # Handle missing values
-df['Age'].fillna(df['Age'].median(), inplace=True)
-df['Embarked'].fillna(df['Embarked'].mode()[0], inplace=True)
-df.drop('Cabin', axis=1, inplace=True)  # Drop Cabin due to high number of missing values
+combined_data['Age'].fillna(combined_data['Age'].mean(), inplace=True)
+combined_data['Fare'].fillna(combined_data['Fare'].mean(), inplace=True)
+combined_data['Embarked'].fillna(combined_data['Embarked'].mode()[0], inplace=True)
 
-# Convert categorical variables to numerical
-le = LabelEncoder()
-df['Sex'] = le.fit_transform(df['Sex'])
-df['Embarked'] = le.fit_transform(df['Embarked'])
+# Encoding categorical variables
+combined_data = pd.get_dummies(combined_data, columns=['Sex', 'Embarked'])
 
 # Drop unnecessary columns
-df.drop(['Name', 'Ticket', 'PassengerId'], axis=1, inplace=True)
+combined_data.drop(columns=['Name', 'Ticket', 'Cabin'], inplace=True)
 
-# Step 3: Feature Engineering
-# Create new feature FamilySize
-df['FamilySize'] = df['SibSp'] + df['Parch'] + 1
+# Display the CSV table
+display(combined_data.head())
+import matplotlib.pyplot as plt
 
-# Create new feature IsAlone
-df['IsAlone'] = 1  # Initialize to 1, which means alone
-df['IsAlone'].loc[df['FamilySize'] > 1] = 0  # If FamilySize > 1, not alone
+# Example: Bar graph of passenger count by Sex
+sex_counts = combined_data['Sex_male'].value_counts()  # Assuming 'Sex_male' is the encoded column for males
+sex_counts.plot(kind='bar', color=['blue', 'pink'])
+plt.title('Passenger Count by Sex')
+plt.xlabel('Sex')
+plt.ylabel('Count')
+plt.xticks([0, 1], ['Female', 'Male'], rotation=0)
+plt.show()
+import matplotlib.pyplot as plt
 
-# Step 4: Model Building
-X = df.drop('Survived', axis=1)
-y = df['Survived']
+# Example: Scatter plot of Age vs. Fare
+plt.figure(figsize=(8, 6))
+plt.scatter(combined_data['Age'], combined_data['Fare'], alpha=0.5, c='blue', edgecolors='none')
+plt.title('Age vs. Fare')
+plt.xlabel('Age')
+plt.ylabel('Fare')
+plt.grid(True)
+plt.show()
+# Example: Histogram of Age distribution
+plt.figure(figsize=(8, 6))
+plt.hist(combined_data['Age'], bins=20, color='green', edgecolor='black')
+plt.title('Age Distribution')
+plt.xlabel('Age')
+plt.ylabel('Frequency')
+plt.grid(True)
+plt.show()
+# Example: Box plot of Fare distribution by Pclass
+plt.figure(figsize=(8, 6))
+combined_data.boxplot(column='Fare', by='Pclass', grid=True)
+plt.title('Fare Distribution by Pclass')
+plt.suptitle('')  # Remove default title
+plt.xlabel('Pclass')
+plt.ylabel('Fare')
+plt.show()
+print(combined_data.head())
+# Split back into train and test sets
+X_train = combined_data.iloc[:len(train_data)]
+X_test = combined_data.iloc[len(train_data):]
 
-# Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+y_train = train_data['Survived']
 
-# Standardize the features
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
-
-# Train a Random Forest classifier
-model = RandomForestClassifier(n_estimators=100, random_state=42)
+# Step 3: Train a model
+# Example: Using RandomForestClassifier
+model = RandomForestClassifier(random_state=42)
 model.fit(X_train, y_train)
 
-# Step 5: Evaluation
-y_pred = model.predict(X_test)
+# Step 4: Make predictions
+predictions = model.predict(X_test)
 
-accuracy = accuracy_score(y_test, y_pred)
-precision = precision_score(y_test, y_pred)
-recall = recall_score(y_test, y_pred)
-f1 = f1_score(y_test, y_pred)
+# Step 5: Evaluate the model (example: using train-test split for simplicity)
+X_train_split, X_val, y_train_split, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=42)
+model.fit(X_train_split, y_train_split)
+val_predictions = model.predict(X_val)
+accuracy = accuracy_score(y_val, val_predictions)
+print(f'Validation accuracy: {accuracy:.4f}')
 
-print(f"Accuracy: {accuracy:.4f}")
-print(f"Precision: {precision:.4f}")
-print(f"Recall: {recall:.4f}")
-print(f"F1 Score: {f1:.4f}")
-
-# Confusion Matrix
-conf_matrix = confusion_matrix(y_test, y_pred)
-plt.figure(figsize=(8, 6))
-sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
-plt.xlabel('Predicted')
-plt.ylabel('Actual')
-plt.title('Confusion Matrix')
-plt.show()
