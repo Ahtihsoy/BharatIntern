@@ -1,63 +1,62 @@
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import string
-import re
-
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Step 1: Data Collection
 # Load the dataset
-url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00228/smsspamcollection.zip"
-df = pd.read_csv(url, sep='\t', names=["label", "message"])
+df = pd.read_csv('/home/yoshitha/Desktop/sms/train.csv')
+df.head()
 
-# Step 2: Data Preprocessing
-# Convert label to binary
-df['label'] = df['label'].map({'ham': 0, 'spam': 1})
+# Check for missing values
+print(df.isnull().sum())
 
-# Clean text
-def preprocess_text(text):
-    text = text.lower()  # Lowercase text
-    text = re.sub(r'\d+', '', text)  # Remove digits
-    text = text.translate(str.maketrans('', '', string.punctuation))  # Remove punctuation
-    text = text.strip()  # Remove leading/trailing whitespace
-    return text
+# Drop rows with missing values
+df = df.dropna()
 
-df['message'] = df['message'].apply(preprocess_text)
+# Check the distribution of labels
+print(df['label'].value_counts())
 
-# Step 3: Feature Extraction
-tfidf = TfidfVectorizer(stop_words='english')
-X = tfidf.fit_transform(df['message'])
+# Split the data into features and target variable
+X = df['sms']
 y = df['label']
 
-# Step 4: Model Building
+# Split the data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-model = LogisticRegression()
-model.fit(X_train, y_train)
+# Vectorize the text data using TF-IDF
+vectorizer = TfidfVectorizer(stop_words='english')
+X_train_tfidf = vectorizer.fit_transform(X_train)
+X_test_tfidf = vectorizer.transform(X_test)
 
-# Step 5: Evaluation
-y_pred = model.predict(X_test)
+# Initialize the classifier
+model = MultinomialNB()
 
+# Train the model
+model.fit(X_train_tfidf, y_train)
+
+# Predict on the test data
+y_pred = model.predict(X_test_tfidf)
+
+# Calculate accuracy
 accuracy = accuracy_score(y_test, y_pred)
-precision = precision_score(y_test, y_pred)
-recall = recall_score(y_test, y_pred)
-f1 = f1_score(y_test, y_pred)
+print(f'Accuracy: {accuracy}')
 
-print(f"Accuracy: {accuracy:.4f}")
-print(f"Precision: {precision:.4f}")
-print(f"Recall: {recall:.4f}")
-print(f"F1 Score: {f1:.4f}")
+# Generate classification report
+print(classification_report(y_test, y_pred))
 
-# Confusion Matrix
+# Generate confusion matrix
 conf_matrix = confusion_matrix(y_test, y_pred)
-plt.figure(figsize=(8, 6))
+plt.figure(figsize=(6, 4))
 sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
 plt.xlabel('Predicted')
 plt.ylabel('Actual')
 plt.title('Confusion Matrix')
 plt.show()
+
+# Save the model and vectorizer
+import joblib
+joblib.dump(model, 'sms_spam_classifier.pkl')
+joblib.dump(vectorizer, 'tfidf_vectorizer.pkl')
